@@ -113,15 +113,87 @@ startupPosition:
 
 从最早的偏移量开始
 
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```text
+KafkaIngressStartupPosition#fromEarliest();
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```text
+startupPosition:
+    type: earliest
+```
+{% endtab %}
+{% endtabs %}
+
 **Latest**
 
 从最新的偏移量开始。
+
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```text
+KafkaIngressStartupPosition#fromLatest();
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```text
+startupPosition:
+    type: latest
+```
+{% endtab %}
+{% endtabs %}
 
 **指定偏移量**
 
 从特定的偏移量开始，该偏移量定义为分区到目标起始偏移量的映射。
 
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```text
+Map<TopicPartition, Long> offsets = new HashMap<>();
+offsets.add(new TopicPartition("user-topic", 0), 91);
+offsets.add(new TopicPartition("user-topic", 11), 11);
+offsets.add(new TopicPartition("user-topic", 8), 8);
+
+KafkaIngressStartupPosition#fromSpecificOffsets(offsets);
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```text
+startupPosition:
+    type: specific-offsets
+    offsets:
+        - user-topic/0: 91
+        - user-topic/1: 11
+        - user-topic/2: 8
+```
+{% endtab %}
+{% endtabs %}
+
 #### **Date**
+
+从提取时间大于或等于指定日期的偏移量开始。
+
+{% tabs %}
+{% tab title="嵌入式模式" %}
+```text
+KafkaIngressStartupPosition#fromDate(ZonedDateTime.now());
+```
+{% endtab %}
+
+{% tab title="远程模式" %}
+```text
+startupPosition:
+    type: date
+    date: 2020-02-01 04:15:00.00 Z
+```
+{% endtab %}
+{% endtabs %}
 
 ### Kafka **反序列化器**
 
