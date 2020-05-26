@@ -11,7 +11,7 @@
 规范定义了如何连接到外部系统的详细信息，该系统特定于每个单独的I/O模块。每个标识符规范对都绑定到有状态函数模块内的系统。
 
 {% tabs %}
-{% tab title=" 嵌套模块" %}
+{% tab title=" 嵌入式模块" %}
 ```java
 package org.apache.flink.statefun.docs.io.ingress;
 
@@ -73,7 +73,7 @@ module:
 路由器是一个无状态的操作符，它从入口获取每个记录并将其路由到零个或多个函数。路由器通过有状态函数模块绑定到系统，与其他组件不同，入口可以有任意数量的路由器。
 
 {% tabs %}
-{% tab title="嵌套模块" %}
+{% tab title="嵌入式模块" %}
 ```text
 package org.apache.flink.statefun.docs.io.ingress;
 
@@ -136,7 +136,7 @@ targets:
 出口标识符基于命名空间、名称和生成类型唯一地标识出口。出口规范定义了如何连接到外部系统的详细信息，这些详细信息特定于每个单独的I/O模块。每个标识符规范对都绑定到有状态函数模块内的系统。
 
 {% tabs %}
-{% tab title="嵌套模块" %}
+{% tab title="嵌入式模块" %}
 ```java
 package org.apache.flink.statefun.docs.io.egress;
 
