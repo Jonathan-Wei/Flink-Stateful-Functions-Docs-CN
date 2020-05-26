@@ -42,6 +42,8 @@ public class MyStateBootstrapFunction implements StateBootstrapFunction {
  }
 ```
 
+假设这个引导函数是为函数类型MyFunctionType提供的，并且引导函数实例的id是id-13。该函数使用给定的引导数据写入名称my-state的持久状态。在从使用这个引导函数生成的保存点恢复有状态函数应用程序之后，带有address \(MyFunctionType, id-13\)的有状态函数实例将已经在状态名my-state下具有可用的状态值。
+
 ## 创建一个保存点
 
 通过定义某些元数据（例如最大并行度和状态后端）来创建保存点。默认状态后端是[RocksDB](https://ci.apache.org/projects/flink/flink-docs-stable/ops/state/state_backends.html#the-rocksdbstatebackend)。
