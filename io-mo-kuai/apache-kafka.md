@@ -195,7 +195,200 @@ startupPosition:
 {% endtab %}
 {% endtabs %}
 
+ 启动时，如果分区的指定启动偏移量超出范围或不存在（如果将入口配置为从组偏移量，特定偏移量或日期开始，则可能是这种情况）将回退到使用所配置的位置`KafkaIngressBuilder#withAutoOffsetResetPosition(KafkaIngressAutoResetPosition)`。默认情况下，此位置设置为最新位置。
+
 ### Kafka **反序列化器**
 
+ 使用Java api时，Kafka入口需要知道如何将Kafka中的二进制数据转换为Java对象。在`KafkaIngressDeserializer`允许用户指定这样的一个模式。每条Kafka消息都会调用`T deserialize(ConsumerRecord<byte[], byte[]> record)`方法，并从Kafka传递键，值和元数据。
+
+```java
+package org.apache.flink.statefun.docs.io.kafka;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import org.apache.flink.statefun.docs.models.User;
+import org.apache.flink.statefun.sdk.kafka.KafkaIngressDeserializer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class UserDeserializer implements KafkaIngressDeserializer<User> {
+
+	private static Logger LOG = LoggerFactory.getLogger(UserDeserializer.class);
+
+	private final ObjectMapper mapper = new ObjectMapper();
+
+	@Override
+	public User deserialize(ConsumerRecord<byte[], byte[]> input) {
+		try {
+			return mapper.readValue(input.value(), User.class);
+		} catch (IOException e) {
+			LOG.debug("Failed to deserialize record", e);
+			return null;
+		}
+	}
+}
+```
+
 ## **Kafka出口规范**
+
+`KafkaEgressBuilder`声明用于将数据写出到Kafka集群的出口规范。
+
+它接受以下参数：
+
+1. 与此出口关联的出口标识符
+2. 引导服务器的地址
+3. `KafkaEgressSerializer`序列化数据到Kafka（仅适用于Java的）
+4. 容错语义
+5. Kafka Producer的属性
+
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```java
+package org.apache.flink.statefun.docs.io.kafka;
+
+import org.apache.flink.statefun.docs.models.User;
+import org.apache.flink.statefun.sdk.io.EgressIdentifier;
+import org.apache.flink.statefun.sdk.io.EgressSpec;
+import org.apache.flink.statefun.sdk.kafka.KafkaEgressBuilder;
+
+public class EgressSpecs {
+
+  public static final EgressIdentifier<User> ID =
+      new EgressIdentifier<>("example", "output-egress", User.class);
+
+  public static final EgressSpec<User> kafkaEgress =
+      KafkaEgressBuilder.forIdentifier(ID)
+          .withKafkaAddress("localhost:9092")
+          .withSerializer(UserSerializer.class)
+          .build();
+}
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```yaml
+version: "1.0"
+
+module:
+    meta:
+    type: remote
+spec:
+    egresses:
+      - egress:
+          meta:
+            type: statefun.kafka.io/generic-egress
+            id: example/output-messages
+          spec:
+            address: kafka-broker:9092
+            deliverySemantic:
+              type: exactly-once
+              transactionTimeoutMillis: 100000
+            properties:
+              - foo.config: bar
+```
+{% endtab %}
+{% endtabs %}
+
+ 请参阅Kafka [Producer配置](https://docs.confluent.io/current/installation/configuration/producer-configs.html)文档以获取可用属性的完整列表。
+
+### Kafka出口和容错
+
+启用容错功能后，Kafka出口可以提供准确的一次交付保证。可以选择三种不同的操作模式。
+
+#### **None**
+
+没有任何保证，产生的记录可能会丢失或重复。
+
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```text
+KafkaEgressBuilder#withNoProducerSemantics();
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```text
+deliverySemantic:
+    type: none
+```
+{% endtab %}
+{% endtabs %}
+
+#### **至少一次**
+
+有状态函数将确保不会丢失任何记录，但可以重复记录。
+
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```text
+KafkaEgressBuilder#withAtLeastOnceProducerSemantics();
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```text
+deliverySemantic:
+    type: at-least-once
+```
+{% endtab %}
+{% endtabs %}
+
+#### **恰好一次**
+
+有状态函数使用Kafka事务提供一次精确的语义。
+
+{% tabs %}
+{% tab title="嵌入式模块" %}
+```text
+KafkaEgressBuilder#withExactlyOnceProducerSemantics(Duration.minutes(15));
+```
+{% endtab %}
+
+{% tab title="远程模块" %}
+```text
+deliverySemantic:
+    type: exactly-once
+    transactionTimeoutMillis: 900000 # 15 min
+```
+{% endtab %}
+{% endtabs %}
+
+### Kafka序列化器
+
+ 使用Java api时，Kafka出口需要知道如何将Java对象转换为二进制数据。在`KafkaEgressSerializer`允许用户指定这样的一个模式。`ProducerRecord<byte[], byte[]> serialize(T out)`为每条消息调用该方法，从而允许用户设置键，值和其他元数据。
+
+```java
+package org.apache.flink.statefun.docs.io.kafka;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.statefun.docs.models.User;
+import org.apache.flink.statefun.sdk.kafka.KafkaEgressSerializer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class UserSerializer implements KafkaEgressSerializer<User> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(UserSerializer.class);
+
+  private static final String TOPIC = "user-topic";
+
+  private final ObjectMapper mapper = new ObjectMapper();
+
+  @Override
+  public ProducerRecord<byte[], byte[]> serialize(User user) {
+    try {
+      byte[] key = user.getUserId().getBytes();
+      byte[] value = mapper.writeValueAsBytes(user);
+
+      return new ProducerRecord<>(TOPIC, key, value);
+    } catch (JsonProcessingException e) {
+      LOG.info("Failed to serializer user", e);
+      return null;
+    }
+  }
+}
+```
 
